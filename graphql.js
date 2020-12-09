@@ -16,7 +16,18 @@ const resolvers = {
   },
 };
 
-const server = new ApolloServer({ typeDefs, resolvers });
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+  playground: {
+    endpoint: "/dev/graphql"
+  },
+  context: ({ event, context }) => ({
+    headers: event.headers,
+    functionName: context.functionName,
+    event,
+    context,
+  }),
+});
 
-// This creates an export named graphqlHandler with a Lambda function handler.
 exports.graphqlHandler = server.createHandler();
