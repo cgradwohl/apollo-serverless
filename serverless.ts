@@ -32,6 +32,26 @@ const serverlessConfiguration: AWS = {
           }
         }
       ]
+    },
+    graphql: {
+      // this is formatted as <FILENAME>.<HANDLER>
+      handler: 'graphql.graphqlHandler',
+      events: [
+        {
+          http: {
+            method: 'post',
+            path: 'graphql',
+            cors: true,
+          },
+        },
+        {
+          http: {
+            method: 'get',
+            path: 'graphql',
+            cors: true,
+          },
+        },
+      ],
     }
   }
 }
