@@ -34,7 +34,6 @@ const serverlessConfiguration: AWS = {
       ]
     },
     graphql: {
-      // this is formatted as <FILENAME>.<HANDLER>
       handler: 'graphql.graphqlHandler',
       events: [
         {
