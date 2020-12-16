@@ -1,25 +1,52 @@
-import { DataSource } from 'apollo-datasource';
-import { DynamoDB } from 'aws-sdk';
+// Source: https://github.com/cmwhited/apollo-datasource-dynamodb/blob/main/src/DynamoDBDataSource.ts
 
-// https://github.com/cmwhited/apollo-datasource-dynamodb/blob/main/src/DynamoDBDataSource.ts
+import { DataSource, DataSourceConfig } from 'apollo-datasource';
+import { DynamoDB } from 'aws-sdk';
+import { ClientConfiguration } from 'aws-sdk/clients/dynamodb';
+
+import { DynamoDBCache, DynamoDBCacheImpl, CACHE_PREFIX_KEY } from './DynamoDBCache';
+import { buildItemsCacheMap, buildCacheKey, buildKey } from './utils';
+import { CacheKeyItemMap } from './types';
 
 /**
  * Data Source to interact with DynamoDB.
  * @param ITEM the type of the item to retrieve from the DynamoDB table
  */
-export class DynamoDBDataSource<ITEM = unknown, TContext = unknown> extends DataSource {
-  // can only assign a readonly field in the constructor
-  readonly tableName: string;
-  readonly dynamoDBClient: DynamoDB.DocumentClient;
+export abstract class DynamoDBDataSource<ITEM = unknown, TContext = unknown> extends DataSource {
+  readonly dynamoDbDocClient: DynamoDB.DocumentClient;
+  readonly tableName!: string;
+  readonly tableKeySchema!: DynamoDB.DocumentClient.KeySchema;
+  dynamodbCache!: DynamoDBCache<ITEM>;
+  context!: TContext;
 
+  /**
+   * Create a `DynamoDBDataSource` instance with the supplied params
+   * @param tableName the name of the DynamoDB table the class will be interacting with
+   * @param tableKeySchema the key structure schema of the table
+   * @param config an optional ClientConfiguration object to use in building the DynamoDB.DocumentClient
+   * @param client an optional initialized DynamoDB.Document client instance to use to set the client in the class instance
+   */
   constructor(
     tableName: string,
+    tableKeySchema: DynamoDB.DocumentClient.KeySchema,
+    config?: ClientConfiguration,
+    client?: DynamoDB.DocumentClient
   ) {
     super();
     this.tableName = tableName;
-    this.dynamoDBClient = new DynamoDB.DocumentClient({
-      apiVersion: 'latest',
-    });
+    this.tableKeySchema = tableKeySchema;
+    this.dynamoDbDocClient =
+      client != null
+        ? client
+        : new DynamoDB.DocumentClient({
+            apiVersion: 'latest',
+            ...config,
+          });
+  }
+
+  initialize({ context, cache }: DataSourceConfig<TContext>): void {
+    this.context = context;
+    this.dynamodbCache = new DynamoDBCacheImpl(this.dynamoDbDocClient, cache);
   }
 
   /**
@@ -29,8 +56,8 @@ export class DynamoDBDataSource<ITEM = unknown, TContext = unknown> extends Data
    * @param getItemInput the input that provides information about which record to retrieve from the cache/dynamodb table
    * @param ttl the time-to-live value of the item in the cache. determines how long the item persists in the cache
    */
-  async getItem(getItemInput: DynamoDB.DocumentClient.GetItemInput): Promise<ITEM> {
-    return await this.dynamoDBClient.get(getItemInput);
+  async getItem(getItemInput: DynamoDB.DocumentClient.GetItemInput, ttl?: number): Promise<ITEM> {
+    return await this.dynamodbCache.getItem(getItemInput, ttl);
   }
 
   /**
